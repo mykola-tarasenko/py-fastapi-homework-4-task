@@ -42,7 +42,7 @@ async def user_profile(
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
     data: ProfileCreateSchema = Depends(ProfileCreateSchema.from_form),
 ) -> ProfileResponseSchema:
-    if not token:
+    if not token or jwt_manager.verify_access_token_or_raise(token):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization header is missing",
@@ -60,7 +60,7 @@ async def user_profile(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired."
         )
 
-    if decoded_token["user_id"] != user_id and not decoded_token.get("is_admin", False):
+    if decoded_token["user_id"] != user_id or not decoded_token.get("is_admin", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to edit this profile.",
@@ -91,13 +91,7 @@ async def user_profile(
     try:
         filename = f"avatars/{user_id}_avatar.jpg"
         await s3_client.upload_file(filename, await data.avatar.read())
-    except (ConnectionError, HTTPClientError, NoCredentialsError, BotoCoreError):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to upload avatar. Please try again later.",
-        )
 
-    try:
         new_user_profile = UserProfileModel(
             first_name=data.first_name.lower(),
             last_name=data.last_name.lower(),
@@ -116,6 +110,11 @@ async def user_profile(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create a profile.",
+        )
+    except (ConnectionError, HTTPClientError, NoCredentialsError, BotoCoreError):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload avatar. Please try again later.",
         )
     else:
         return ProfileResponseSchema(
