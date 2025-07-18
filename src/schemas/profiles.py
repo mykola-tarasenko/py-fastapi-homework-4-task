@@ -7,7 +7,7 @@ from validation import (
     validate_name,
     validate_image,
     validate_gender,
-    validate_birth_date
+    validate_birth_date,
 )
 
 
@@ -21,29 +21,56 @@ class ProfileResponseSchema(BaseModel):
     info: str
     avatar: HttpUrl
 
+    model_config = {"from_attributes": True}
 
-class ProfileRequestSchema(BaseModel):
-    id: id = Form()
-    user_id: int = Form()
-    first_name: str = Form()
-    last_name: str = Form()
-    gender: str = Form()
-    date_of_birth: date = Form()
-    info: str = Form()
-    avatar: UploadFile
 
-    @field_validator("name")
-    def validate_name(self, name: str):
-        return validate_name(name)
+class ProfileCreateSchema(BaseModel):
+    first_name: str = Form(...)
+    last_name: str = Form(...)
+    gender: str = Form(...)
+    date_of_birth: date = Form(...)
+    info: str = Form(...)
+    avatar: UploadFile = File(...)
 
-    @field_validator("image")
-    def validate_image(self, image: UploadFile):
-        return validate_image(image)
+    @classmethod
+    def from_form(
+        cls,
+        first_name: str = Form(...),
+        last_name: str = Form(...),
+        gender: str = Form(...),
+        date_of_birth: date = Form(...),
+        info: str = Form(...),
+        avatar: UploadFile = File(...),
+    ) -> "ProfileCreateSchema":
+        return cls(
+            first_name=first_name,
+            last_name=last_name,
+            gender=gender,
+            date_of_birth=date_of_birth,
+            info=info,
+            avatar=avatar,
+        )
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def validate_name(cls, name: str):
+        validate_name(name)
+        return name
+
+    @field_validator("avatar")
+    @classmethod
+    def validate_image(cls, image: UploadFile):
+        validate_image(image)
+        return image
 
     @field_validator("gender")
-    def validate_gender(self, gender: str):
-        return validate_gender(gender)
+    @classmethod
+    def validate_gender(cls, gender: str):
+        validate_gender(gender)
+        return gender
 
-    @field_validator("birth_date")
-    def validate_birth_date(self, birth_date: date):
-        return validate_birth_date(birth_date)
+    @field_validator("date_of_birth")
+    @classmethod
+    def validate_birth_date(cls, birth_date: date):
+        validate_birth_date(birth_date)
+        return birth_date
