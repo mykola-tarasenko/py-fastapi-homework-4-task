@@ -26,7 +26,7 @@ from storages import S3StorageInterface
 router = APIRouter()
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
 
 
 @router.post(
@@ -60,7 +60,7 @@ async def user_profile(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired."
         )
 
-    if decoded_token["user_id"] != user_id:
+    if decoded_token["user_id"] != user_id and not decoded_token.get("is_admin", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to edit this profile.",
@@ -70,7 +70,7 @@ async def user_profile(
     db_user_result = await db.execute(db_user_stmt)
     db_user = db_user_result.scalar_one_or_none()
 
-    if not db_user:
+    if not db_user or not db_user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or not active.",
@@ -101,7 +101,7 @@ async def user_profile(
         new_user_profile = UserProfileModel(
             first_name=data.first_name.lower(),
             last_name=data.last_name.lower(),
-            avatar=await s3_client.get_file_url(filename),
+            avatar=filename,
             gender=data.gender,
             date_of_birth=data.date_of_birth,
             info=data.info,
@@ -118,4 +118,13 @@ async def user_profile(
             detail="Failed to create a profile.",
         )
     else:
-        return ProfileResponseSchema.model_validate(new_user_profile)
+        return ProfileResponseSchema(
+            id=new_user_profile.id,
+            user_id=new_user_profile.user_id,
+            first_name=new_user_profile.first_name,
+            last_name=new_user_profile.last_name,
+            gender=new_user_profile.gender,
+            date_of_birth=new_user_profile.date_of_birth,
+            info=new_user_profile.info,
+            avatar=await s3_client.get_file_url(filename),
+        )
