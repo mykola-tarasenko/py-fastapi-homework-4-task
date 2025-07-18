@@ -36,11 +36,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
 )
 async def user_profile(
     user_id: int,
-    data: ProfileCreateSchema = Depends(ProfileCreateSchema.from_form),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
     jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
+    data: ProfileCreateSchema = Depends(ProfileCreateSchema.from_form),
 ) -> ProfileResponseSchema:
     if not token:
         raise HTTPException(
