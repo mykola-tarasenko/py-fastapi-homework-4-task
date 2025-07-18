@@ -42,7 +42,7 @@ async def user_profile(
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
     data: ProfileCreateSchema = Depends(ProfileCreateSchema.from_form),
 ) -> ProfileResponseSchema:
-    if not token or jwt_manager.verify_access_token_or_raise(token):
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization header is missing",
