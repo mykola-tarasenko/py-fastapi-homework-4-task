@@ -1,7 +1,7 @@
 from datetime import date
 
 from fastapi import UploadFile, Form, File, HTTPException
-from pydantic import BaseModel, field_validator, HttpUrl
+from pydantic import BaseModel, field_validator, HttpUrl, ValidationError
 
 from validation import (
     validate_name,
@@ -42,14 +42,19 @@ class ProfileCreateSchema(BaseModel):
         info: str = Form(...),
         avatar: UploadFile = File(...),
     ) -> "ProfileCreateSchema":
-        return cls(
-            first_name=first_name,
-            last_name=last_name,
-            gender=gender,
-            date_of_birth=date_of_birth,
-            info=info,
-            avatar=avatar,
-        )
+        try:
+            return cls(
+                first_name=first_name,
+                last_name=last_name,
+                gender=gender,
+                date_of_birth=date_of_birth,
+                info=info,
+                avatar=avatar,
+            )
+        except ValidationError as e:
+            raise HTTPException(status_code=422, detail=e.errors())
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
     @field_validator("first_name", "last_name")
     @classmethod
