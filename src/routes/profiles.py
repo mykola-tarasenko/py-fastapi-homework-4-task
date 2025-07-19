@@ -60,7 +60,7 @@ async def user_profile(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired."
         )
 
-    if decoded_token["user_id"] != user_id or not decoded_token.get("is_admin", False):
+    if decoded_token["user_id"] != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to edit this profile.",
@@ -74,6 +74,12 @@ async def user_profile(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or not active.",
+        )
+
+    if db_user.group_id != 2:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to edit this profile.",
         )
 
     db_user_profile_stmt = select(UserProfileModel).where(
