@@ -1,6 +1,7 @@
 from datetime import date
 
-from fastapi import UploadFile, Form, File, HTTPException
+from fastapi import UploadFile, HTTPException
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, field_validator, HttpUrl, ValidationError
 
 from validation import (
@@ -11,71 +12,64 @@ from validation import (
 )
 
 
-class ProfileResponseSchema(BaseModel):
-    id: int
-    user_id: int
+class BaseProfileSchema(BaseModel):
     first_name: str
     last_name: str
     gender: str
     date_of_birth: date
     info: str
-    avatar: HttpUrl
-
-    model_config = {"from_attributes": True}
-
-
-class ProfileCreateSchema(BaseModel):
-    first_name: str = Form(...)
-    last_name: str = Form(...)
-    gender: str = Form(...)
-    date_of_birth: date = Form(...)
-    info: str = Form(...)
-    avatar: UploadFile = File(...)
-
-    @classmethod
-    def from_form(
-        cls,
-        first_name: str = Form(...),
-        last_name: str = Form(...),
-        gender: str = Form(...),
-        date_of_birth: date = Form(...),
-        info: str = Form(...),
-        avatar: UploadFile = File(...),
-    ) -> "ProfileCreateSchema":
-        try:
-            return cls(
-                first_name=first_name,
-                last_name=last_name,
-                gender=gender,
-                date_of_birth=date_of_birth,
-                info=info,
-                avatar=avatar,
-            )
-        except ValidationError as e:
-            raise HTTPException(status_code=422, detail=e.errors())
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
 
     @field_validator("first_name", "last_name")
     @classmethod
-    def validate_name(cls, name: str):
-        validate_name(name)
-        return name
-
-    @field_validator("avatar")
-    @classmethod
-    def validate_image(cls, image: UploadFile):
-        validate_image(image)
-        return image
+    def validate_name_field(cls, name: str) -> str:
+        try:
+            validate_name(name)
+            return name.lower()
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
     @field_validator("gender")
     @classmethod
-    def validate_gender(cls, gender: str):
-        validate_gender(gender)
-        return gender
+    def validate_gender_field(cls, gender: str) -> str:
+        try:
+            validate_gender(gender)
+            return gender
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
     @field_validator("date_of_birth")
     @classmethod
-    def validate_birth_date(cls, birth_date: date):
-        validate_birth_date(birth_date)
-        return birth_date
+    def validate_date_of_birth_field(cls, date_of_birth: date) -> date:
+        try:
+            validate_birth_date(date_of_birth)
+            return date_of_birth
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+    @field_validator("info")
+    @classmethod
+    def validate_info_field(cls, value: str) -> str:
+        if not len(value.strip()) > 0:
+            raise HTTPException(
+                status_code=422,
+                detail="Info field cannot be empty or contain only spaces.",
+            )
+        return value.strip()
+
+
+class ProfileCreateRequestSchema(BaseProfileSchema):
+    avatar: UploadFile
+
+    @field_validator("avatar")
+    @classmethod
+    def validate_avatar_field(cls, avatar: UploadFile) -> UploadFile:
+        try:
+            validate_image(avatar)
+            return avatar
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+
+class ProfileResponseSchema(BaseProfileSchema):
+    id: int
+    avatar: HttpUrl
